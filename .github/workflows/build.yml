@@ -35,10 +35,11 @@ jobs:
       if: matrix.os == 'windows-latest'
       uses: microsoft/setup-msbuild@v2
 
-    - name: Install CMake (macOS)
+    - name: Setup CMake (macOS)
       if: matrix.os == 'macos-latest'
       run: |
-        brew install cmake
+        # Verify CMake is available (GitHub Actions runners come with CMake pre-installed)
+        cmake --version
 
     - name: Create build directory
       run: mkdir build
