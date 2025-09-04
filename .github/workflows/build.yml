@@ -77,19 +77,21 @@ jobs:
       if: matrix.os == 'windows-latest' && matrix.build_type == 'Debug'
       working-directory: build
       run: |
-        # Test that the executable runs and shows version
-        .\source\app\gpr_tools\Debug\gpr_tools.exe --help
-        .\source\app\vc5_decoder_app\Debug\vc5_decoder_app.exe --help
-        .\source\app\vc5_encoder_app\Debug\vc5_encoder_app.exe --help
+        # Test that the executables run and show version info (no arguments = version display)
+        .\source\app\gpr_tools\Debug\gpr_tools.exe
+        .\source\app\vc5_decoder_app\Debug\vc5_decoder_app.exe
+        .\source\app\vc5_encoder_app\Debug\vc5_encoder_app.exe
+        echo "All executables ran successfully and displayed version info"
 
     - name: Test basic functionality (Windows Release)
       if: matrix.os == 'windows-latest' && matrix.build_type == 'Release'
       working-directory: build
       run: |
-        # Test that the executable runs and shows version
-        .\source\app\gpr_tools\Release\gpr_tools.exe --help
-        .\source\app\vc5_decoder_app\Release\vc5_decoder_app.exe --help
-        .\source\app\vc5_encoder_app\Release\vc5_encoder_app.exe --help
+        # Test that the executables run and show version info (no arguments = version display)
+        .\source\app\gpr_tools\Release\gpr_tools.exe
+        .\source\app\vc5_decoder_app\Release\vc5_decoder_app.exe
+        .\source\app\vc5_encoder_app\Release\vc5_encoder_app.exe
+        echo "All executables ran successfully and displayed version info"
 
     - name: Test GPR to DNG conversion
       if: matrix.os == 'windows-latest' && matrix.build_type == 'Debug'

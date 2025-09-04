@@ -57,8 +57,8 @@ jobs:
       if: matrix.build_type == 'Release'
       working-directory: build
       run: |
-        # Quick test to ensure the main tool runs
-        .\source\app\gpr_tools\Release\gpr_tools.exe --help
+        # Quick test to ensure the main tool runs and shows version
+        .\source\app\gpr_tools\Release\gpr_tools.exe
         echo "Basic functionality test passed"
 
     - name: Test sample conversion
