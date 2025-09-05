@@ -1,0 +1,140 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ master, main, develop ]
+  pull_request:
+    branches: [ master, main, develop ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        build_type: [Release, Debug]
+        include:
+          - os: ubuntu-latest
+            name: Linux
+          - os: windows-latest
+            name: Windows
+          - os: macos-latest
+            name: macOS
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install CMake (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake build-essential
+
+    - name: Setup MSVC (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup CMake (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        # Verify CMake is available (GitHub Actions runners come with CMake pre-installed)
+        cmake --version
+
+    - name: Create build directory
+      run: mkdir build
+
+    - name: Configure CMake (Unix)
+      if: matrix.os != 'windows-latest'
+      working-directory: build
+      run: cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+
+    - name: Configure CMake (Windows)
+      if: matrix.os == 'windows-latest'
+      working-directory: build
+      run: cmake ..
+
+    - name: Build project (Unix)
+      if: matrix.os != 'windows-latest'
+      working-directory: build
+      run: make -j$(nproc)
+
+    - name: Build project (Windows)
+      if: matrix.os == 'windows-latest'
+      working-directory: build
+      run: cmake --build . --config ${{ matrix.build_type }} --parallel
+
+    - name: Test GPR to DNG conversion
+      if: matrix.os == 'windows-latest' && matrix.build_type == 'Debug'
+      working-directory: build
+      run: |
+        # Test conversion using sample GPR file
+        .\source\app\gpr_tools\Debug\gpr_tools.exe -i "..\data\samples\Hero5\GOPR2657.GPR" -o test_output.dng
+        # Verify output file was created and has reasonable size (should be > 1MB)
+        if ((Get-Item test_output.dng).length -lt 1MB) { throw "Output file too small" }
+        echo "GPR to DNG conversion test passed"
+
+    - name: Upload build artifacts (Windows)
+      if: matrix.os == 'windows-latest' && matrix.build_type == 'Release'
+      uses: actions/upload-artifact@v4
+      with:
+        name: gpr-tools-windows-${{ matrix.build_type }}
+        path: |
+          build/source/app/gpr_tools/Release/gpr_tools.exe
+          build/source/app/vc5_decoder_app/Release/vc5_decoder_app.exe
+          build/source/app/vc5_encoder_app/Release/vc5_encoder_app.exe
+
+    - name: Upload build artifacts (Unix)
+      if: matrix.os != 'windows-latest' && matrix.build_type == 'Release'
+      uses: actions/upload-artifact@v4
+      with:
+        name: gpr-tools-${{ matrix.name }}-${{ matrix.build_type }}
+        path: |
+          build/source/app/gpr_tools/gpr_tools
+          build/source/app/vc5_decoder_app/vc5_decoder_app
+          build/source/app/vc5_encoder_app/vc5_encoder_app
+
+  test-samples:
+    runs-on: windows-latest
+    needs: build
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Create build directory
+      run: mkdir build
+
+    - name: Configure CMake
+      working-directory: build
+      run: cmake ..
+
+    - name: Build project
+      working-directory: build
+      run: cmake --build . --config Release --parallel
+
+    - name: Test all sample files
+      working-directory: build
+      run: |
+        # Test conversion of all available sample GPR files
+        $samples = Get-ChildItem "..\data\samples\*\*.GPR" -Recurse
+        $testCount = 0
+        foreach ($sample in $samples) {
+          $testCount++
+          $outputFile = "test_$testCount.dng"
+          echo "Testing conversion: $($sample.FullName)"
+          .\source\app\gpr_tools\Release\gpr_tools.exe -i "$($sample.FullName)" -o $outputFile
+          if (!(Test-Path $outputFile)) {
+            throw "Failed to create output file for $($sample.Name)"
+          }
+          if ((Get-Item $outputFile).length -lt 1MB) {
+            throw "Output file too small for $($sample.Name)"
+          }
+          echo "✓ Successfully converted $($sample.Name)"
+          Remove-Item $outputFile
+        }
+        echo "All $testCount sample files converted successfully!"
